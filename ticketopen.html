@@ -175,12 +175,14 @@
             bottom: 0;
             left: 0;
             width: 100%;
+            max-height: 80vh; /* 화면 높이의 80%까지만 사용 */
             background-color: white;
             border-radius: 20px 20px 0 0;
             padding: 20px;
             box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
             transform: translateY(100%);
             transition: transform 0.3s ease-out;
+            overflow-y: auto; /* 내용이 많을 경우 스크롤 가능하도록 */
         }
 
         .modal.show .modal-content {
@@ -213,46 +215,131 @@
         .attendee-input {
             display: flex;
             gap: 10px;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
+            padding: 10px 0;
+            background-color: white;
+            position: sticky;
+            top: 0;
+            z-index: 2;
         }
 
         .attendee-input input {
             flex: 1;
-            padding: 8px;
+            padding: 12px;
             border: 1px solid #ddd;
-            border-radius: 4px;
+            border-radius: 8px;
             font-size: 16px;
         }
 
         .add-btn {
+            padding: 12px 20px;
             background-color: #1E4B8D;
             color: white;
             border: none;
-            padding: 8px 15px;
-            border-radius: 4px;
+            border-radius: 8px;
             cursor: pointer;
+            font-size: 16px;
         }
 
         .attendees-list {
-            max-height: 200px;
-            overflow-y: auto;
+            margin-bottom: 20px;
         }
 
         .attendee-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 8px;
-            border-bottom: 1px solid #eee;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 10px;
         }
 
         .delete-btn {
-            color: #dc3545;
-            background: none;
+            background-color: #dc3545;
+            color: white;
             border: none;
+            padding: 8px 15px;
+            border-radius: 6px;
             cursor: pointer;
+            font-size: 14px;
+        }
+
+        .memo-buttons {
+            position: sticky;
+            bottom: 0;
+            background-color: white;
+            padding: 15px 0;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        
+        .close-memo-btn {
+            width: 100%;
+            padding: 12px;
+            background-color: #1E4B8D;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        /* 모바일 터치 최적화 */
+        @media (max-width: 768px) {
+            .modal-content {
+                padding: 15px;
+            }
+
+            .attendee-input input,
+            .add-btn,
+            .delete-btn,
+            .close-memo-btn {
+                font-size: 16px;
+                min-height: 44px;
+            }
+
+            .attendee-item {
+                padding: 12px;
+            }
+        }
+
+        /* 안전한 영역 확보 (iPhone X 이상) */
+        @supports (padding: max(0px)) {
+            .modal-content {
+                padding-bottom: max(20px, env(safe-area-inset-bottom));
+            }
         }
     </style>
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Firebase SDK 임포트
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, get, set, onValue, child } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // Firebase 설정
+        const firebaseConfig = {
+            apiKey: "AIzaSyBeiAB0etYuTLWz8uml6xiW3hxeTmWmrrg",
+            authDomain: "sl-schedule-42e24.firebaseapp.com",
+            projectId: "sl-schedule-42e24",
+            storageBucket: "sl-schedule-42e24.firebasestorage.app",
+            messagingSenderId: "104322155697",
+            appId: "1:104322155697:web:713ebbdf32ac0c6fda8e90",
+            databaseURL: "https://sl-schedule-42e24-default-rtdb.asia-southeast1.firebasedatabase.app"
+        };
+
+        // Firebase 초기화
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        // 전역 변수로 내보내기
+        window.db = database;
+        window.dbRef = ref;
+        window.dbGet = get;
+        window.dbSet = set;
+        window.dbOnValue = onValue;
+    </script>
 </head>
 <body>
     <div class="container">
@@ -920,47 +1007,22 @@
                 <button class="add-btn">추가</button>
             </div>
             <div class="attendees-list"></div>
+            <div class="memo-buttons">
+                <button class="close-memo-btn">닫기</button>
+            </div>
         </div>
     </div>
-
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-
-    <script>
-        // Firebase 초기화
-        const firebaseConfig = {
-            apiKey: "AIzaSyBeiAB0etYuTLWz8uml6xiW3hxeTmWmrrg",
-            authDomain: "sl-schedule-42e24.firebaseapp.com",
-            projectId: "sl-schedule-42e24",
-            storageBucket: "sl-schedule-42e24.firebasestorage.app",
-            messagingSenderId: "104322155697",
-            appId: "1:104322155697:web:713ebbdf32ac0c6fda8e90",
-            databaseURL: "https://sl-schedule-42e24-default-rtdb.asia-southeast1.firebasedatabase.app"
-        };
-
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
-    </script>
 
     <script>
         let currentGameDate = '';
 
-        // 체크박스 기능
-        document.querySelectorAll('.ticket-checkbox').forEach(checkbox => {
-            checkbox.addEventListener('change', function() {
-                const row = this.closest('tr');
-                if (this.checked) {
-                    row.classList.add('completed-game');
-                } else {
-                    row.classList.remove('completed-game');
-                }
-            });
-        });
-
-        // 문서 로드 완료 후 실행되는 초기화 함수
         document.addEventListener('DOMContentLoaded', () => {
-            // 모든 메모 버튼에 이벤트 리스너 추가
+            const modal = document.getElementById('memoModal');
+            const closeBtn = modal.querySelector('.close-btn');
+            const addBtn = modal.querySelector('.add-btn');
+            const closeMemoBtn = modal.querySelector('.close-memo-btn');
+            const nameInput = document.getElementById('attendeeName');
+
             document.querySelectorAll('.memo-btn').forEach(button => {
                 button.addEventListener('click', function() {
                     const gameDate = this.getAttribute('data-game-date');
@@ -968,25 +1030,13 @@
                 });
             });
 
-            const modal = document.getElementById('memoModal');
-            const closeBtn = modal.querySelector('.close-btn');
-            const addBtn = modal.querySelector('.add-btn');
-            const nameInput = document.getElementById('attendeeName');
-
             closeBtn.addEventListener('click', closeMemo);
-            addBtn.addEventListener('click', () => {
-                const name = nameInput.value.trim();
-                if (name) {
-                    addAttendee(name);
-                }
-            });
+            closeMemoBtn.addEventListener('click', closeMemo);
+            addBtn.addEventListener('click', addAttendee);
             
             nameInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
-                    const name = nameInput.value.trim();
-                    if (name) {
-                        addAttendee(name);
-                    }
+                    addAttendee();
                 }
             });
 
@@ -1005,65 +1055,108 @@
             const formattedDate = `${dateObj.getMonth() + 1}월 ${dateObj.getDate()}일 경기 관람자`;
             
             modalTitle.textContent = formattedDate;
-            modal.style.display = 'block';
-            modal.classList.add('show');
 
             // Firebase에서 데이터 가져오기
-            const dbRef = database.ref('games/' + date);
-            dbRef.on('value', (snapshot) => {
-                const data = snapshot.val() || { attendees: [] };
-                displayAttendees(data.attendees);
-            });
+            const gameRef = window.dbRef(window.db, `games/${currentGameDate}/attendees`);
+            
+            window.dbGet(gameRef)
+                .then((snapshot) => {
+                    if (snapshot.exists()) {
+                        displayAttendees(snapshot.val());
+                    } else {
+                        displayAttendees([]);
+                    }
+                    
+                    // 실시간 업데이트 리스너
+                    window.dbOnValue(gameRef, (snapshot) => {
+                        if (snapshot.exists() && currentGameDate === date) {
+                            displayAttendees(snapshot.val());
+                        }
+                    });
+                })
+                .catch((error) => {
+                    console.error("데이터 로드 중 오류 발생:", error);
+                    alert("데이터를 불러오는 중 오류가 발생했습니다.");
+                });
+
+            modal.style.display = 'block';
+            modal.classList.add('show');
+            
+            // 입력 필드에 포커스
+            document.getElementById('attendeeName').focus();
         }
 
-        function addAttendee(name) {
-            const dbRef = database.ref('games/' + currentGameDate);
+        function addAttendee() {
+            const nameInput = document.getElementById('attendeeName');
+            const name = nameInput.value.trim();
             
-            dbRef.once('value').then((snapshot) => {
-                const data = snapshot.val() || { attendees: [] };
-                const attendees = data.attendees || [];
-                attendees.push(name);
+            if (name) {
+                const gameRef = window.dbRef(window.db, `games/${currentGameDate}/attendees`);
                 
-                return dbRef.set({ attendees: attendees });
-            }).then(() => {
-                document.getElementById('attendeeName').value = '';
-                document.getElementById('attendeeName').focus();
-            });
+                // 현재 데이터 가져오기
+                window.dbGet(gameRef)
+                    .then((snapshot) => {
+                        let attendees = [];
+                        if (snapshot.exists()) {
+                            attendees = snapshot.val();
+                        }
+                        
+                        // 새 관람자 추가
+                        attendees.push(name);
+                        
+                        // Firebase에 저장
+                        return window.dbSet(gameRef, attendees);
+                    })
+                    .then(() => {
+                        nameInput.value = '';
+                        nameInput.focus();
+                    })
+                    .catch((error) => {
+                        console.error("저장 중 오류 발생:", error);
+                        alert("저장하는 중 오류가 발생했습니다.");
+                    });
+            }
         }
 
         function deleteAttendee(index) {
-            const dbRef = database.ref('games/' + currentGameDate);
+            const gameRef = window.dbRef(window.db, `games/${currentGameDate}/attendees`);
             
-            dbRef.once('value').then((snapshot) => {
-                const data = snapshot.val() || { attendees: [] };
-                const attendees = data.attendees || [];
-                attendees.splice(index, 1);
-                
-                return dbRef.set({ attendees: attendees });
-            });
+            window.dbGet(gameRef)
+                .then((snapshot) => {
+                    if (snapshot.exists()) {
+                        let attendees = snapshot.val();
+                        attendees = attendees.filter((_, i) => i !== index);
+                        return window.dbSet(gameRef, attendees);
+                    }
+                })
+                .catch((error) => {
+                    console.error("삭제 중 오류 발생:", error);
+                    alert("삭제하는 중 오류가 발생했습니다.");
+                });
         }
 
-        function displayAttendees(attendees = []) {
+        function displayAttendees(attendees) {
             const attendeesList = document.querySelector('.attendees-list');
             attendeesList.innerHTML = '';
             
-            attendees.forEach((name, index) => {
-                const attendeeItem = document.createElement('div');
-                attendeeItem.className = 'attendee-item';
-                attendeeItem.innerHTML = `
-                    <span>${name}</span>
-                    <button class="delete-btn" onclick="deleteAttendee(${index})">삭제</button>
-                `;
-                attendeesList.appendChild(attendeeItem);
-            });
+            if (Array.isArray(attendees) && attendees.length > 0) {
+                attendees.forEach((name, index) => {
+                    const attendeeItem = document.createElement('div');
+                    attendeeItem.className = 'attendee-item';
+                    attendeeItem.innerHTML = `
+                        <span>${name}</span>
+                        <button class="delete-btn" onclick="deleteAttendee(${index})">삭제</button>
+                    `;
+                    attendeesList.appendChild(attendeeItem);
+                });
+            }
         }
 
         function closeMemo() {
             const modal = document.getElementById('memoModal');
-            const dbRef = database.ref('games/' + currentGameDate);
-            dbRef.off(); // 리스너 제거
             modal.style.display = 'none';
             modal.classList.remove('show');
+            document.getElementById('attendeeName').value = '';
         }
     </script>
 </body>
