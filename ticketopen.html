@@ -101,6 +101,7 @@
             border: none;
             border-radius: 4px;
             cursor: pointer;
+            transition: background-color 0.3s ease;
         }
 
         .completed-game {
@@ -1045,7 +1046,29 @@
                     closeMemo();
                 }
             });
+
+            checkAllMemoStatus();
         });
+
+        function checkAllMemoStatus() {
+            document.querySelectorAll('.memo-btn').forEach(button => {
+                const gameDate = button.getAttribute('data-game-date');
+                const dbRef = window.dbRef(window.db, `games/${gameDate}/attendees`);
+                
+                window.dbGet(dbRef)
+                    .then((snapshot) => {
+                        const data = snapshot.val();
+                        if (data && Array.isArray(data) && data.length > 0) {
+                            button.style.backgroundColor = '#dc3545'; // 빨간색
+                        } else {
+                            button.style.backgroundColor = '#1E4B8D'; // 파란색
+                        }
+                    })
+                    .catch((error) => {
+                        console.error("데이터 로드 중 오류 발생:", error);
+                    });
+            });
+        }
 
         function openMemo(date) {
             currentGameDate = date;
@@ -1055,35 +1078,21 @@
             const formattedDate = `${dateObj.getMonth() + 1}월 ${dateObj.getDate()}일 경기 관람자`;
             
             modalTitle.textContent = formattedDate;
-
-            // Firebase에서 데이터 가져오기
-            const gameRef = window.dbRef(window.db, `games/${currentGameDate}/attendees`);
-            
-            window.dbGet(gameRef)
-                .then((snapshot) => {
-                    if (snapshot.exists()) {
-                        displayAttendees(snapshot.val());
-                    } else {
-                        displayAttendees([]);
-                    }
-                    
-                    // 실시간 업데이트 리스너
-                    window.dbOnValue(gameRef, (snapshot) => {
-                        if (snapshot.exists() && currentGameDate === date) {
-                            displayAttendees(snapshot.val());
-                        }
-                    });
-                })
-                .catch((error) => {
-                    console.error("데이터 로드 중 오류 발생:", error);
-                    alert("데이터를 불러오는 중 오류가 발생했습니다.");
-                });
-
             modal.style.display = 'block';
             modal.classList.add('show');
-            
-            // 입력 필드에 포커스
-            document.getElementById('attendeeName').focus();
+
+            const dbRef = window.dbRef(window.db, `games/${date}/attendees`);
+            window.dbOnValue(dbRef, (snapshot) => {
+                const data = snapshot.val();
+                displayAttendees(data || []);
+                
+                const memoBtn = document.querySelector(`button[data-game-date="${date}"]`);
+                if (data && Array.isArray(data) && data.length > 0) {
+                    memoBtn.style.backgroundColor = '#dc3545'; // 빨간색
+                } else {
+                    memoBtn.style.backgroundColor = '#1E4B8D'; // 파란색
+                }
+            });
         }
 
         function addAttendee() {
@@ -1091,25 +1100,27 @@
             const name = nameInput.value.trim();
             
             if (name) {
-                const gameRef = window.dbRef(window.db, `games/${currentGameDate}/attendees`);
+                const dbRef = window.dbRef(window.db, `games/${currentGameDate}/attendees`);
                 
-                // 현재 데이터 가져오기
-                window.dbGet(gameRef)
+                window.dbGet(dbRef)
                     .then((snapshot) => {
                         let attendees = [];
                         if (snapshot.exists()) {
                             attendees = snapshot.val();
                         }
+                        if (!Array.isArray(attendees)) {
+                            attendees = [];
+                        }
                         
-                        // 새 관람자 추가
                         attendees.push(name);
-                        
-                        // Firebase에 저장
-                        return window.dbSet(gameRef, attendees);
+                        return window.dbSet(dbRef, attendees);
                     })
                     .then(() => {
                         nameInput.value = '';
                         nameInput.focus();
+                        
+                        const memoBtn = document.querySelector(`button[data-game-date="${currentGameDate}"]`);
+                        memoBtn.style.backgroundColor = '#dc3545'; // 빨간색
                     })
                     .catch((error) => {
                         console.error("저장 중 오류 발생:", error);
@@ -1119,14 +1130,24 @@
         }
 
         function deleteAttendee(index) {
-            const gameRef = window.dbRef(window.db, `games/${currentGameDate}/attendees`);
+            const dbRef = window.dbRef(window.db, `games/${currentGameDate}/attendees`);
             
-            window.dbGet(gameRef)
+            window.dbGet(dbRef)
                 .then((snapshot) => {
                     if (snapshot.exists()) {
                         let attendees = snapshot.val();
+                        if (!Array.isArray(attendees)) {
+                            attendees = [];
+                        }
                         attendees = attendees.filter((_, i) => i !== index);
-                        return window.dbSet(gameRef, attendees);
+                        return window.dbSet(dbRef, attendees).then(() => attendees);
+                    }
+                    return [];
+                })
+                .then((attendees) => {
+                    const memoBtn = document.querySelector(`button[data-game-date="${currentGameDate}"]`);
+                    if (!attendees || attendees.length === 0) {
+                        memoBtn.style.backgroundColor = '#1E4B8D'; // 파란색
                     }
                 })
                 .catch((error) => {
